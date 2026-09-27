@@ -216,3 +216,37 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ============================================================
+# SRE Challenge additions
+# ============================================================
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Terraform: state can contain secrets and belongs in the S3 backend, never in Git
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# NOTE: .terraform.lock.hcl IS committed (pins provider versions).
+# NOTE: *.tfvars ARE committed; they must never contain secrets (secrets live in AWS Secrets Manager).
+
+# Kubernetes credentials
+kubeconfig
+*.kubeconfig
+.kube/
+
+# Secrets that must never be committed
+*.pem
+*.key
+secrets/
