@@ -105,5 +105,6 @@ resource "aws_eks_node_group" "default" {
     aws_eks_addon.vpc_cni, # pod networking must exist before nodes can become Ready
     aws_eks_addon.kube_proxy,
     aws_eks_addon.pod_identity_agent,
+    aws_route_table_association.private, # nodes need their route out through the NAT to join
   ]
 }
