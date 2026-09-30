@@ -1,6 +1,8 @@
 # SLO: 99.95% of real user requests succeed (non-5xx), measured over 30 days.
 # Error budget = 0.05% = 0.0005. Health probes and metric scrapes are excluded
 # from the SLI because they are not user traffic.
+# `or vector(0)`: when no 5xx has ever happened the 5xx series doesn't exist, and
+# "nothing / something" is nothing in PromQL. Zero errors must mean 100%, not no data.
 #
 # Alerts follow the multi-window, multi-burn-rate pattern (Google SRE Workbook):
 #   fast burn: 14.4x budget rate over 1h (confirmed over 5m)  -> 2% of budget in 1h  -> critical
@@ -16,22 +18,22 @@ spec:
       rules:
         - record: sre_challenge:error_ratio:rate5m
           expr: |
-            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[5m]))
+            (sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[5m])) or vector(0))
               /
             sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[5m]))
         - record: sre_challenge:error_ratio:rate30m
           expr: |
-            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[30m]))
+            (sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[30m])) or vector(0))
               /
             sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[30m]))
         - record: sre_challenge:error_ratio:rate1h
           expr: |
-            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[1h]))
+            (sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[1h])) or vector(0))
               /
             sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[1h]))
         - record: sre_challenge:error_ratio:rate6h
           expr: |
-            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[6h]))
+            (sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[6h])) or vector(0))
               /
             sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[6h]))
         - record: sre_challenge:availability:ratio_rate5m

@@ -13,3 +13,6 @@ spec:
     - port: http
       path: /metrics
       interval: 15s
+      # The app labels requests with `endpoint` (the URL path). Without this, Prometheus'
+      # own `endpoint` target label (the port name) wins and renames the app's label.
+      honorLabels: true

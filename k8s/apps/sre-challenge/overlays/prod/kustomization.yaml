@@ -7,7 +7,7 @@ resources:
 images:
   # The approved-release step changes only this tag to promote to prod.
   - name: ghcr.io/enginesound/sre-challenge-aws
-    newTag: v4.0
+    newTag: v4.1
 patches:
   # Prod is the only public entry point: an AWS Network Load Balancer.
   - target:

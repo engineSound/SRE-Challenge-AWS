@@ -19,5 +19,7 @@ COPY app.py .
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost/health', timeout=2).status == 200 else 1)"
 
-# Run with gunicorn (production WSGI server)
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "4", "--timeout", "30", "app:app"]
+# Run with gunicorn: ONE worker process with 4 threads. prometheus_client keeps counters
+# per process, so several worker processes would each report different counts and
+# Prometheus would see fake counter resets. Scale out with more pods (HPA) instead.
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "1", "--threads", "4", "--timeout", "30", "app:app"]

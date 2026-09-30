@@ -71,7 +71,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "1 - (sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[5m])) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[5m])))",
+              "expr": "1 - ((sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[5m])) or vector(0)) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[5m])))",
               "refId": "A"
             }
           ],
@@ -147,7 +147,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "1 - (sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[5m])) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[5m])))",
+              "expr": "1 - ((sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[5m])) or vector(0)) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[5m])))",
               "legendFormat": "Availability (SLI)",
               "refId": "A"
             },
@@ -205,7 +205,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "(sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[30m])) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[30m]))) / (1 - 0.9995)",
+              "expr": "((sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[30m])) or vector(0)) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[30m]))) / (1 - 0.9995)",
               "refId": "A"
             }
           ],
@@ -289,7 +289,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "((1 - (sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[30d])) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[30d])))) - 0.9995) * 100 / (1 - 0.9995)",
+              "expr": "((1 - ((sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[30d])) or vector(0)) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[30d])))) - 0.9995) * 100 / (1 - 0.9995)",
               "legendFormat": "Error Budget Remaining (%)",
               "refId": "A"
             }
@@ -449,7 +449,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "100 * (sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[5m])) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[5m])))",
+              "expr": "100 * ((sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[5m])) or vector(0)) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[5m])))",
               "refId": "A"
             }
           ],

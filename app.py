@@ -92,7 +92,7 @@ def metrics():
 @app.route('/version', methods=['GET'])
 def version():
     """Version endpoint"""
-    return Response('v4.0', status=200, mimetype='text/plain')
+    return Response('v4.1', status=200, mimetype='text/plain')
 
 # ============================================================================
 # ERROR HANDLERS
