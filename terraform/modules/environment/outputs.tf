@@ -6,6 +6,16 @@ output "cluster_version" {
   value = aws_eks_cluster.this.version
 }
 
+output "cluster_endpoint" {
+  description = "Kubernetes API endpoint (used by the Helm provider in the environment root)"
+  value       = aws_eks_cluster.this.endpoint
+}
+
+output "cluster_ca_certificate" {
+  description = "Base64-encoded cluster CA certificate"
+  value       = aws_eks_cluster.this.certificate_authority[0].data
+}
+
 output "vpc_id" {
   value = aws_vpc.this.id
 }

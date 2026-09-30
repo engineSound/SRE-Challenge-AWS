@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 3.3"
+    }
   }
 
   backend "s3" {
@@ -32,6 +36,20 @@ provider "aws" {
   }
 }
 
+# Helm talks to the cluster this configuration creates, authenticating with
+# a short-lived token from the AWS CLI (same login that runs Terraform).
+provider "helm" {
+  kubernetes = {
+    host                   = module.environment.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.environment.cluster_ca_certificate)
+    exec = {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", module.environment.cluster_name, "--region", "us-east-1"]
+    }
+  }
+}
+
 module "environment" {
   source = "../../modules/environment"
 
@@ -41,11 +59,16 @@ module "environment" {
   kubernetes_version = "1.36"
 
   node_instance_type = "t3.medium"
-  node_count         = 2
-  node_max_count     = 3
+  node_count         = 3 # 17 pods per t3.medium; 3 nodes leave room for the platform + rolling updates
+  node_max_count     = 4
 
   admin_user_name = "Design_one"
   ci_role_name    = "sre-challenge-github-ci"
+
+  git_repo_url              = "https://github.com/engineSound/SRE-Challenge-AWS.git"
+  git_revision              = "main"
+  argocd_chart_version      = "10.9.4" # ArgoCD v3.5.3
+  argocd_apps_chart_version = "2.0.6"
 }
 
 output "cluster_name" {

@@ -24,6 +24,14 @@ resource "aws_eks_addon" "coredns" {
   depends_on   = [aws_eks_node_group.default]
 }
 
+# Feeds CPU/memory numbers to the HorizontalPodAutoscaler (`kubectl top`).
+# EKS does not include it by default.
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "metrics-server"
+  depends_on   = [aws_eks_node_group.default]
+}
+
 # --- EBS CSI driver: lets Kubernetes create AWS disks (Prometheus, Grafana) --
 
 data "aws_iam_policy_document" "pod_identity_trust" {

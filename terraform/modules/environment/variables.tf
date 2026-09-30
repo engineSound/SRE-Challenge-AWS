@@ -52,6 +52,27 @@ variable "admin_user_name" {
   type        = string
 }
 
+variable "git_repo_url" {
+  description = "Git repository ArgoCD pulls the desired cluster state from"
+  type        = string
+}
+
+variable "git_revision" {
+  description = "Branch or tag ArgoCD follows"
+  type        = string
+  default     = "main"
+}
+
+variable "argocd_chart_version" {
+  description = "argo-helm/argo-cd chart version"
+  type        = string
+}
+
+variable "argocd_apps_chart_version" {
+  description = "argo-helm/argocd-apps chart version (creates the root Application)"
+  type        = string
+}
+
 variable "ci_role_name" {
   description = "IAM role used by GitHub Actions (from the persistent layer); granted read-only access"
   type        = string
