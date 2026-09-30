@@ -1,0 +1,15 @@
+# Tells Prometheus to scrape every app pod's /metrics endpoint.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: sre-challenge-app
+  labels:
+    app: sre-challenge
+spec:
+  selector:
+    matchLabels:
+      app: sre-challenge
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Monitoring content shared by both clusters: SLO rules and the SLI/SLO dashboard.
+namespace: monitoring
+resources:
+  - slo-rules.yaml
+  - sli-slo-dashboard.yaml

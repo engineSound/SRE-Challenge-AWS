@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sre-challenge-app
+  labels:
+    app: sre-challenge
+spec:
+  # Internal by default. Only the prod overlay makes it public.
+  type: ClusterIP
+  selector:
+    app: sre-challenge
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

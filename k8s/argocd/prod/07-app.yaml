@@ -1,0 +1,29 @@
+# Wave 1: the Flask app, last, so monitoring is already watching when it starts.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sre-challenge-app
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/engineSound/SRE-Challenge-AWS.git
+    targetRevision: main
+    path: k8s/apps/sre-challenge/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sre-challenge
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

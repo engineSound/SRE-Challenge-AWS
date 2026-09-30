@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sre-challenge-app
+spec:
+  # Node drains (upgrades, scale-in) may never leave fewer than 2 pods serving.
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: sre-challenge

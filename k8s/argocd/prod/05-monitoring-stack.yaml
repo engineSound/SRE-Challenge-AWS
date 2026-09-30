@@ -1,0 +1,80 @@
+# Wave -1: kube-prometheus-stack (Prometheus, Grafana, Alertmanager, exporters).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 91.8.2
+    helm:
+      releaseName: kube-prometheus-stack
+      valuesObject:
+        # EKS runs these control-plane parts itself and doesn't expose their
+        # metrics; scraping them would only produce false "down" alerts.
+        kubeControllerManager: { enabled: false }
+        kubeScheduler: { enabled: false }
+        kubeEtcd: { enabled: false }
+        kubeProxy: { enabled: false }
+        defaultRules:
+          rules:
+            etcd: false
+            kubeControllerManager: false
+            kubeSchedulerAlerting: false
+            kubeSchedulerRecording: false
+            kubeProxy: false
+        prometheus:
+          prometheusSpec:
+            retention: 30d          # the error-budget panel looks back 30 days
+            retentionSize: 18GB
+            externalLabels:
+              environment: prod     # shows up on every alert email
+            # Pick up our PodMonitor and PrometheusRule without extra labels.
+            podMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            resources:
+              requests: { cpu: 100m, memory: 512Mi }
+              limits: { memory: 1Gi }
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: gp3
+                  accessModes: [ReadWriteOnce]
+                  resources:
+                    requests:
+                      storage: 20Gi
+        alertmanager:
+          alertmanagerSpec:
+            useExistingSecret: true
+            configSecret: alertmanager-config   # rendered from the vault (wave -2)
+        grafana:
+          admin:
+            existingSecret: grafana-admin       # from the vault (wave -2)
+            userKey: admin-user
+            passwordKey: admin-password
+          service:
+            type: ClusterIP                     # reached by port-forward only
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,90 @@
+# SLO: 99.95% of real user requests succeed (non-5xx), measured over 30 days.
+# Error budget = 0.05% = 0.0005. Health probes and metric scrapes are excluded
+# from the SLI because they are not user traffic.
+#
+# Alerts follow the multi-window, multi-burn-rate pattern (Google SRE Workbook):
+#   fast burn: 14.4x budget rate over 1h (confirmed over 5m)  -> 2% of budget in 1h  -> critical
+#   slow burn:  6x   budget rate over 6h (confirmed over 30m) -> 5% of budget in 6h  -> warning
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sre-challenge-slo
+spec:
+  groups:
+    - name: sre-challenge-sli
+      interval: 30s
+      rules:
+        - record: sre_challenge:error_ratio:rate5m
+          expr: |
+            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[5m]))
+              /
+            sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[5m]))
+        - record: sre_challenge:error_ratio:rate30m
+          expr: |
+            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[30m]))
+              /
+            sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[30m]))
+        - record: sre_challenge:error_ratio:rate1h
+          expr: |
+            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[1h]))
+              /
+            sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[1h]))
+        - record: sre_challenge:error_ratio:rate6h
+          expr: |
+            sum(rate(http_requests_total{status=~"5..", endpoint!~"/metrics|/health"}[6h]))
+              /
+            sum(rate(http_requests_total{endpoint!~"/metrics|/health"}[6h]))
+        - record: sre_challenge:availability:ratio_rate5m
+          expr: 1 - sre_challenge:error_ratio:rate5m
+        - record: sre_challenge:latency_p99:seconds_rate5m
+          expr: |
+            histogram_quantile(0.99,
+              sum by (le) (rate(http_request_duration_seconds_bucket{endpoint!~"/metrics|/health"}[5m])))
+
+    - name: sre-challenge-slo-alerts
+      rules:
+        - alert: SREChallengeErrorBudgetFastBurn
+          expr: |
+            sre_challenge:error_ratio:rate1h > (14.4 * 0.0005)
+              and
+            sre_challenge:error_ratio:rate5m > (14.4 * 0.0005)
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Error budget burning fast: 2% of the monthly budget in 1 hour"
+            description: "5xx ratio is {{ $value | humanizePercentage }} (SLO allows 0.05%)."
+            runbook: "Check recent deploys in ArgoCD (roll back by reverting the image tag commit), then app logs: kubectl logs -l app=sre-challenge"
+
+        - alert: SREChallengeErrorBudgetSlowBurn
+          expr: |
+            sre_challenge:error_ratio:rate6h > (6 * 0.0005)
+              and
+            sre_challenge:error_ratio:rate30m > (6 * 0.0005)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Error budget burning steadily: 5% of the monthly budget in 6 hours"
+            description: "5xx ratio over 6h is {{ $value | humanizePercentage }} (SLO allows 0.05%)."
+            runbook: "Look for a slow leak: error trends per endpoint on the SLI/SLO dashboard, pod restarts, dependency errors."
+
+        - alert: SREChallengeAppDown
+          expr: absent(up{job=~".*/sre-challenge-app"} == 1)
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "No app pod is being scraped successfully"
+            description: "Prometheus sees zero healthy sre-challenge-app targets."
+            runbook: "kubectl get pods -l app=sre-challenge; check ArgoCD app health and recent events."
+
+        - alert: SREChallengeLatencyHigh
+          expr: sre_challenge:latency_p99:seconds_rate5m > 0.2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "p99 latency above 200 ms for 10 minutes"
+            description: "p99 latency is {{ $value | humanizeDuration }}."
+            runbook: "Check CPU (HPA may be at max), node pressure, and slow endpoints on the dashboard."
