@@ -46,7 +46,14 @@ N_OK=$(echo "$APPS" | jq '[.items[] | select(.status.sync.status=="Synced" and .
 check 1 "All ArgoCD applications Synced + Healthy" "$(tf "[ $N_APPS -ge 8 ] && [ $N_OK -eq $N_APPS ]")" "$N_OK / $N_APPS"
 
 GIT_HEAD=$(git -C "$ROOT" ls-remote origin -h refs/heads/main | cut -c1-40)
-OFF=$(echo "$APPS" | jq -r --arg h "$GIT_HEAD" '[.items[] | select(.spec.source.repoURL|test("github.com")) | select(.status.sync.revision != $h) | .metadata.name] | join(" ")')
+# Right after a push, ArgoCD may not have polled Git yet (about every 3 minutes): wait up to 4 minutes.
+for i in $(seq 1 24); do
+  OFF=$($K get applications -n argocd -o json | jq -r --arg h "$GIT_HEAD" '[.items[] | select(.spec.source.repoURL|test("github.com")) | select(.status.sync.revision != $h) | .metadata.name] | join(" ")')
+  [ -z "$OFF" ] && break
+  [ "$i" = 1 ] && echo "       (waiting for ArgoCD to pick up GitHub main ${GIT_HEAD:0:7}; it polls about every 3 minutes)"
+  sleep 10
+done
+APPS=$($K get applications -n argocd -o json)
 check 2 "Git-sourced apps are on GitHub main's latest commit" "$(tf "[ -z \"$OFF\" ]")" "main=${GIT_HEAD:0:7}${OFF:+; behind: $OFF}"
 
 # ---------------------------------------------------------------------------

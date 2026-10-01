@@ -14,6 +14,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY app.py .
 
+# Version shown by /version and the page; CI passes the image tag (e.g. sha-1a2b3c4).
+# Declared after pip install so changing it doesn't invalidate the dependency layer.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+
 # Health check (python:3.11-slim has no curl, so use Python itself).
 # Kubernetes uses its own probes; this one helps with plain `docker run`.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \

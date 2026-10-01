@@ -1,0 +1,150 @@
+# Release pipeline: test → build → (preprod → verify) → approve → prod → verify.
+#
+# CI never deploys with write access to a cluster. It commits an image tag to Git;
+# ArgoCD in each cluster rolls it out. CI then logs in to AWS without stored keys
+# (OIDC) and uses READ-ONLY cluster access to wait for the rollout and the in-cluster
+# smoke test.
+#
+# Preprod stages run only when the repository variable PREPROD_ENABLED is "true"
+# (the preprod cluster is built later). Until then: test → build → approve → prod.
+#
+# Required GitHub setup:
+#   - Environments: "preprod" (no reviewers) and "prod" (you as required reviewer)
+#   - Secret AWS_CI_ROLE_ARN: the sre-challenge-github-ci role (a secret so the account
+#     number never appears in these public logs)
+#   - Variable PREPROD_ENABLED: "false" for now
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - app.py
+      - app/**
+      - requirements*.txt
+      - Dockerfile
+      - tests/**
+      - scripts/ci-wait-release.sh
+      - .github/workflows/release.yml
+  workflow_dispatch: {}
+
+# One release at a time; a newer push waits instead of racing an older one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/enginesound/sre-challenge-aws
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q tests
+
+  build-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v4.4.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+          build-args: APP_VERSION=${{ steps.tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-preprod:
+    if: vars.PREPROD_ENABLED == 'true'
+    needs: build-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Commit the new tag to the preprod overlay (ArgoCD deploys it)
+        env:
+          TAG: ${{ needs.build-push.outputs.tag }}
+        run: |
+          F=k8s/apps/sre-challenge/overlays/preprod/kustomization.yaml
+          sed -i "s/^    newTag: .*/    newTag: $TAG/" "$F"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: preprod -> $TAG"
+          for _ in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done
+
+  verify-preprod:
+    needs: [build-push, deploy-preprod]
+    runs-on: ubuntu-latest
+    environment: preprod
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+      - run: aws eks update-kubeconfig --name sre-challenge-preprod --region "$AWS_REGION"
+      - run: scripts/ci-wait-release.sh preprod "${{ needs.build-push.outputs.tag }}"
+
+  promote-prod:
+    # Runs after preprod is verified, or straight after the build while preprod is disabled.
+    if: >-
+      ${{ !cancelled() && needs.build-push.result == 'success' &&
+          (needs.verify-preprod.result == 'success' || needs.verify-preprod.result == 'skipped') }}
+    needs: [build-push, verify-preprod]
+    runs-on: ubuntu-latest
+    environment: prod          # pauses here until a required reviewer clicks "Approve and deploy"
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+      - name: Commit the same tag to the prod overlay (ArgoCD deploys it)
+        env:
+          TAG: ${{ needs.build-push.outputs.tag }}
+        run: |
+          F=k8s/apps/sre-challenge/overlays/prod/kustomization.yaml
+          sed -i "s/^    newTag: .*/    newTag: $TAG/" "$F"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: prod -> $TAG"
+          for _ in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+      - run: aws eks update-kubeconfig --name sre-challenge-prod --region "$AWS_REGION"
+      - run: scripts/ci-wait-release.sh prod "${{ needs.build-push.outputs.tag }}"

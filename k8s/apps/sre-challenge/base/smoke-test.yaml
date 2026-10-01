@@ -1,0 +1,42 @@
+# Runs inside the cluster after every ArgoCD sync of the app (PostSync hook).
+# Works for preprod too, which has no public address. CI reads the Job's result
+# and its "version=" log line with read-only access to decide whether to continue.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sre-challenge-smoke-test
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    # Keep the last result so CI (and people) can read it; replace it on the next sync.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 180
+  template:
+    metadata:
+      labels:
+        app: sre-challenge-smoke-test
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: smoke
+          image: curlimages/curl:8.10.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              URL=http://sre-challenge-app
+              C="curl -fsS --max-time 5 --retry 10 --retry-connrefused --retry-delay 3"
+              $C $URL/health | grep -qx OK
+              echo "health=OK"
+              V=$($C $URL/version)
+              test -n "$V"
+              echo "version=$V"
+              $C $URL/ | grep -q "The answer is 42"
+              echo "page=OK"
+              $C $URL/metrics | grep -q '^http_requests_total'
+              echo "metrics=OK"
+              echo "SMOKE TEST PASSED"
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 64Mi }

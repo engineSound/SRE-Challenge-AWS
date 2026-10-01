@@ -10,11 +10,20 @@ This app:
 
 from flask import Flask, Response, request, g
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+import os
 import time
 import logging
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# The page lives next to this file (works in the container and in tests).
+INDEX_HTML = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app', 'index.html')
+
+
+def app_version():
+    """Version baked into the image at build time (Docker build arg APP_VERSION)."""
+    return os.environ.get('APP_VERSION', 'dev')
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -75,9 +84,9 @@ def after_request_metrics(response):
 @app.route('/', methods=['GET'])
 def index():
     """Main application endpoint - serves the app version info"""
-    with open('/app/app/index.html', 'r') as f:
+    with open(INDEX_HTML, 'r') as f:
         html_content = f.read()
-    return Response(html_content, mimetype='text/html')
+    return Response(html_content.replace('__APP_VERSION__', app_version()), mimetype='text/html')
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -92,7 +101,7 @@ def metrics():
 @app.route('/version', methods=['GET'])
 def version():
     """Version endpoint"""
-    return Response('v4.1', status=200, mimetype='text/plain')
+    return Response(app_version(), status=200, mimetype='text/plain')
 
 # ============================================================================
 # ERROR HANDLERS

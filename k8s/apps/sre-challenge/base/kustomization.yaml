@@ -7,3 +7,4 @@ resources:
   - hpa.yaml
   - pdb.yaml
   - podmonitor.yaml
+  - smoke-test.yaml
