@@ -69,7 +69,9 @@ data "aws_iam_policy_document" "ci_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [for env in var.environments : "repo:${var.github_repo}:environment:${env}"]
+      # GitHub "immutable subject" format: owner and repo names WITH their permanent IDs,
+      # so a deleted-and-recreated repo of the same name can never inherit this access.
+      values = [for env in var.environments : "${var.github_oidc_subject_prefix}:environment:${env}"]
     }
   }
 }
