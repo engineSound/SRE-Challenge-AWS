@@ -153,7 +153,7 @@ check 17 "Grafana login with the vault password; SLI/SLO dashboard loaded" "$(tf
 BAD=$(curl -s -o /dev/null -w '%{http_code}' -u "$GU:wrong-password" "http://localhost:13000/api/search")
 check 18 "Grafana refuses a wrong password (negative test)" "$(tf "[ \"$BAD\" = 401 ]")" "HTTP $BAD"
 unset GU GP
-kill "$PF_PID" >/dev/null 2>&1; PF_PID=""
+kill "$PF_PID" >/dev/null 2>&1; wait "$PF_PID" 2>/dev/null; PF_PID=""
 
 # Send one test alert straight to Alertmanager; it should arrive by email within about a minute.
 ENDS=$(python3 -c 'import datetime;print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
@@ -162,7 +162,7 @@ ALERT=$(printf '[{"labels":{"alertname":"VerifyPlatformTestAlert","severity":"in
 $K -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 19093:9093 >/dev/null 2>&1 & PF_PID=$!
 sleep 4
 POST=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data "$ALERT" http://localhost:19093/api/v2/alerts)
-kill "$PF_PID" >/dev/null 2>&1; PF_PID=""
+kill "$PF_PID" >/dev/null 2>&1; wait "$PF_PID" 2>/dev/null; PF_PID=""
 SEEN=$($K get --raw "$AM/api/v2/alerts" 2>/dev/null | jq '[.[] | select(.labels.alertname=="VerifyPlatformTestAlert")] | length')
 check 19 "Alertmanager accepted a test alert" "$(tf "[ \"$POST\" = 200 ] && [ \"${SEEN:-0}\" -ge 1 ]")" "POST $POST; check the alert inbox for [FIRING:1] VerifyPlatformTestAlert within ~1 min"
 

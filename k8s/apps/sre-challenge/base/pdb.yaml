@@ -3,8 +3,10 @@ kind: PodDisruptionBudget
 metadata:
   name: sre-challenge-app
 spec:
-  # Node drains (upgrades, scale-in) may never leave fewer than 2 pods serving.
-  minAvailable: 2
+  # At most one pod may be voluntarily evicted at a time (node drains, upgrades).
+  # Works for any replica count: prod 3 -> keeps 2; preprod 2 -> keeps 1.
+  # (minAvailable: 2 blocked every drain in preprod, where the HPA minimum is 2.)
+  maxUnavailable: 1
   selector:
     matchLabels:
       app: sre-challenge

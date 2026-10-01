@@ -31,7 +31,7 @@ VPC_PREFIX=$(aws ec2 describe-vpcs --vpc-ids "$VPC_ID" --query 'Vpcs[0].CidrBloc
 section "Cluster health"
 
 READY=$($K get nodes --no-headers 2>/dev/null | awk '$2=="Ready"' | wc -l | tr -d ' ')
-check 1 "Both nodes joined and Ready" "$([ "$READY" -ge 2 ] && echo true || echo false)" "$READY Ready"
+check 1 "All nodes joined and Ready" "$([ "$READY" -ge 2 ] && echo true || echo false)" "$READY Ready"
 
 BAD_ADDONS=""
 for a in vpc-cni kube-proxy coredns eks-pod-identity-agent aws-ebs-csi-driver; do
