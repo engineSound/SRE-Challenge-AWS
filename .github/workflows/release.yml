@@ -6,13 +6,14 @@
 # smoke test.
 #
 # Preprod stages run only when the repository variable PREPROD_ENABLED is "true"
-# (the preprod cluster is built later). Until then: test → build → approve → prod.
+# (it is, since the preprod cluster was built). Set it to "false" to skip preprod:
+# test → build → approve → prod.
 #
 # Required GitHub setup:
 #   - Environments: "preprod" (no reviewers) and "prod" (you as required reviewer)
 #   - Secret AWS_CI_ROLE_ARN: the sre-challenge-github-ci role (a secret so the account
 #     number never appears in these public logs)
-#   - Variable PREPROD_ENABLED: "false" for now
+#   - Variable PREPROD_ENABLED: "true" while the preprod cluster exists
 name: release
 
 on:
