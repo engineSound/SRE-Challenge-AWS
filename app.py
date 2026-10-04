@@ -25,6 +25,36 @@ def app_version():
     """Version baked into the image at build time (Docker build arg APP_VERSION)."""
     return os.environ.get('APP_VERSION', 'dev')
 
+
+def error_simulation_enabled():
+    """Fault injection for demos. On only where ERROR_SIMULATION=on (preprod overlay); never in prod."""
+    return os.environ.get('ERROR_SIMULATION', 'off') == 'on'
+
+
+# Shown on the page only when error simulation is on. Requests go from the browser to this app,
+# so the errors are real 500s that count against the SLO and should fire the burn-rate alert.
+SIMULATION_PANEL = """
+<section style="margin-top:2em;padding:1em;border:2px dashed #b83232;max-width:40em">
+  <h2>Fault injection (preprod only)</h2>
+  <p>Sends requests from this browser. 500s count against this environment's SLO;
+     the fast-burn alert should email within about 3 minutes.</p>
+  <button onclick="send('/simulate-error', 50)">Send 50 errors</button>
+  <button onclick="send('/version', 50)">Send 50 normal requests</button>
+  <p id="sim-result"></p>
+  <script>
+    async function send(path, n) {
+      const count = {};
+      for (let i = 0; i < n; i++) {
+        try { const r = await fetch(path, {cache: 'no-store'}); count[r.status] = (count[r.status] || 0) + 1; }
+        catch (e) { count.failed = (count.failed || 0) + 1; }
+        document.getElementById('sim-result').textContent =
+          Object.entries(count).map(([k, v]) => v + ' x ' + k).join(', ') + '  (' + (i + 1) + '/' + n + ')';
+      }
+    }
+  </script>
+</section>
+"""
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -86,7 +116,9 @@ def index():
     """Main application endpoint - serves the app version info"""
     with open(INDEX_HTML, 'r') as f:
         html_content = f.read()
-    return Response(html_content.replace('__APP_VERSION__', app_version()), mimetype='text/html')
+    panel = SIMULATION_PANEL if error_simulation_enabled() else ''
+    html_content = html_content.replace('__APP_VERSION__', app_version()).replace('__SIMULATION__', panel)
+    return Response(html_content, mimetype='text/html')
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -102,6 +134,13 @@ def metrics():
 def version():
     """Version endpoint"""
     return Response(app_version(), status=200, mimetype='text/plain')
+
+@app.route('/simulate-error', methods=['GET'])
+def simulate_error():
+    """Demo fault injection: a deliberate 500, only where the switch is on. Elsewhere it doesn't exist (404)."""
+    if not error_simulation_enabled():
+        return not_found(None)
+    return Response('Simulated failure', status=500, mimetype='text/plain')
 
 # ============================================================================
 # ERROR HANDLERS

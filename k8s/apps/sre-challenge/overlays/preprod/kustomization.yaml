@@ -20,3 +20,14 @@ patches:
       - op: replace
         path: /spec/maxReplicas
         value: 3
+  # Fault-injection button for demos: preprod only. Prod never sets this, so its page has no button
+  # and /simulate-error returns 404 there.
+  - target:
+      kind: Deployment
+      name: sre-challenge-app
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: ERROR_SIMULATION
+            value: "on"
