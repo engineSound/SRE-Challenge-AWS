@@ -55,6 +55,15 @@ def test_unknown_path_returns_404(client):
     assert client.get("/nope").status_code == 404
 
 
+def test_error_counters_exist_before_any_error(client):
+    # The SLO uses rate() on 5xx counters; they must be exported from startup (at 0),
+    # otherwise the first burst of errors on a pod is invisible to rate()/increase().
+    body = client.get("/metrics").data.decode()
+    for endpoint in ("/", "/version"):
+        assert f'http_requests_total{{endpoint="{endpoint}",method="GET",status="500"}} 0.0' in body
+    assert 'http_requests_total{endpoint="/simulate-error",method="GET",status="500"}' in body
+
+
 def test_error_simulation_off_by_default(client, monkeypatch):
     # Prod never sets the switch: the route behaves as if it doesn't exist and the page has no button.
     monkeypatch.delenv("ERROR_SIMULATION", raising=False)

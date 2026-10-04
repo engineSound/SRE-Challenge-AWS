@@ -78,6 +78,11 @@ http_request_duration_seconds = Histogram(
     buckets=(0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0)
 )
 
+# Start the 500 counters at zero on every pod. A counter series that first appears already above
+# zero has no earlier sample, so rate()/increase() (and our SLO rules) would miss those first errors.
+for _endpoint in ('/', '/version', '/simulate-error'):
+    http_requests_total.labels(status='500', method='GET', endpoint=_endpoint)
+
 # ============================================================================
 # REQUEST MIDDLEWARE
 # ============================================================================
