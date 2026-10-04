@@ -27,7 +27,7 @@ def app_version():
 
 
 def error_simulation_enabled():
-    """Fault injection for demos. On only where ERROR_SIMULATION=on (preprod overlay); never in prod."""
+    """Fault injection for demos. On only where an overlay sets ERROR_SIMULATION=on (preprod, and prod for the demo)."""
     return os.environ.get('ERROR_SIMULATION', 'off') == 'on'
 
 
@@ -35,7 +35,7 @@ def error_simulation_enabled():
 # so the errors are real 500s that count against the SLO and should fire the burn-rate alert.
 SIMULATION_PANEL = """
 <section style="margin-top:2em;padding:1em;border:2px dashed #b83232;max-width:40em">
-  <h2>Fault injection (preprod only)</h2>
+  <h2>Fault injection (demo)</h2>
   <p>Sends requests from this browser. 500s count against this environment's SLO;
      the fast-burn alert should email within about 3 minutes.</p>
   <button onclick="send('/simulate-error', 50)">Send 50 errors</button>

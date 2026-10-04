@@ -21,3 +21,14 @@ patches:
         path: /metadata/annotations
         value:
           service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  # Fault-injection button, enabled in prod for the Oct 5 demo (owner's decision).
+  # It spends real error budget and the page is public: remove this patch after the demo.
+  - target:
+      kind: Deployment
+      name: sre-challenge-app
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: ERROR_SIMULATION
+            value: "on"
