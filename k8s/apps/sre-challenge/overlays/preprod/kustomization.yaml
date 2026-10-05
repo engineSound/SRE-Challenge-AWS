@@ -7,7 +7,7 @@ resources:
 images:
   # CI updates this tag automatically on every push to main.
   - name: ghcr.io/enginesound/sre-challenge-aws
-    newTag: sha-9795e8b
+    newTag: sha-8274d01
 patches:
   # Preprod stays internal (ClusterIP from the base) and runs smaller.
   - target:
