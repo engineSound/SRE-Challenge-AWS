@@ -60,7 +60,7 @@ data:
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 6,
             "x": 0,
             "y": 0
           },
@@ -78,8 +78,70 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Availability (SLI)",
+          "title": "Availability — last 5 min",
           "type": "gauge"
+        },
+        {
+          "id": 10,
+          "type": "stat",
+          "title": "Availability — 30 days (SLO 99.95%)",
+          "description": "The SLO is judged on this number: share of real user requests (excluding /health, /metrics) without a 5xx over a rolling 30 days. Green = SLO met.",
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "targets": [
+            {
+              "expr": "1 - ((sum(rate(http_requests_total{status=~\"5..\",endpoint!~\"/metrics|/health\"}[30d])) or vector(0)) / sum(rate(http_requests_total{endpoint!~\"/metrics|/health\"}[30d])))",
+              "refId": "A",
+              "instant": true,
+              "range": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "decimals": 3,
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 0.995
+                  },
+                  {
+                    "color": "green",
+                    "value": 0.9995
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "auto",
+            "orientation": "auto",
+            "justifyMode": "auto"
+          },
+          "datasource": "Prometheus"
         },
         {
           "datasource": "Prometheus",
