@@ -21,8 +21,8 @@ patches:
         path: /metadata/annotations
         value:
           service.beta.kubernetes.io/aws-load-balancer-type: nlb
-  # Fault-injection button, enabled in prod for the Oct 5 demo (owner's decision).
-  # It spends real error budget and the page is public: remove this patch after the demo.
+  # Fault-injection button, enabled in prod for the Oct 5 demo and kept after the demo by owner's decision.
+  # It spends real error budget and the page is public: remove this patch when it is no longer needed.
   - target:
       kind: Deployment
       name: sre-challenge-app
