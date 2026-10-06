@@ -131,8 +131,14 @@ section "Monitoring"
 PVC=$($K get pvc -n monitoring -o json | jq -r '[.items[] | select(.metadata.name|test("prometheus")) | "\(.status.phase) \(.spec.storageClassName) \(.status.capacity.storage)"] | first')
 check 12 "Prometheus stores data on a real disk" "$(tf "[ \"$PVC\" = 'Bound gp3 20Gi' ]")" "$PVC"
 
-UP=$(promq 'up{job=~".*/sre-challenge-app"}' | jq -r '[.data.result[] | .value[1]] | "\(length) targets, \(map(select(.=="1"))|length) up"')
-N_UP=$(echo "$UP" | awk '{print $3}'); N_T=$(echo "$UP" | awk '{print $1}')
+# Right after a fresh build, Prometheus needs a minute or two to load the app's
+# PodMonitor and scrape it once. Wait up to 3 minutes before deciding.
+for _ in $(seq 18); do
+  UP=$(promq 'up{job=~".*/sre-challenge-app"}' | jq -r '[.data.result[] | .value[1]] | "\(length) targets, \(map(select(.=="1"))|length) up"')
+  N_UP=$(echo "$UP" | awk '{print $3}'); N_T=$(echo "$UP" | awk '{print $1}')
+  [ "${N_T:-0}" -ge "$MINR" ] && [ "$N_T" = "$N_UP" ] && break
+  sleep 10
+done
 check 13 "Prometheus scrapes every app pod" "$(tf "[ \"$N_T\" -ge $MINR ] && [ \"$N_T\" = \"$N_UP\" ]")" "$UP"
 
 RULES=$($K get --raw "$PROM/api/v1/rules" 2>/dev/null | jq -r '[.data.groups[] | select(.name|test("sre-challenge")) | .rules[] | select(.type=="alerting") | .name] | join(",")')
