@@ -32,8 +32,10 @@ resource "helm_release" "argocd" {
     }
   })]
 
-  # Needs running nodes and in-cluster DNS.
-  depends_on = [aws_eks_node_group.default, aws_eks_addon.coredns]
+  # Needs running nodes, in-cluster DNS, and the admin access Helm logs in with.
+  # The access link also fixes the destroy order: Terraform must uninstall Argo CD
+  # BEFORE it deletes that access (found in the Oct 6 teardown practice).
+  depends_on = [aws_eks_node_group.default, aws_eks_addon.coredns, aws_eks_access_policy_association.admin]
 }
 
 # The root "app of apps": points ArgoCD at k8s/argocd/<environment>/ in Git.
