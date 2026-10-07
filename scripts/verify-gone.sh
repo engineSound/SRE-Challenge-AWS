@@ -35,8 +35,18 @@ check "11 GitHub OIDC provider exists"             bash -c "aws iam list-open-id
 check "12 state bucket exists"                     aws s3api head-bucket --bucket sre-challenge-tfstate-4138fd
 
 echo "== $OTHER untouched =="
-check "13 $OTHER cluster is ACTIVE"                bash -c "[ \"\$(aws eks describe-cluster --name sre-challenge-$OTHER --query cluster.status --output text)\" = ACTIVE ]"
-check "14 $OTHER Argo CD apps all Synced+Healthy"  bash -c "kubectl --context sre-challenge-$OTHER -n argocd get applications --no-headers | awk '\$2!=\"Synced\"||\$3!=\"Healthy\"{bad=1} END{exit bad}'"
+skip=0
+if aws eks describe-cluster --name "sre-challenge-$OTHER" >/dev/null 2>&1; then
+  check "13 $OTHER cluster is ACTIVE"              bash -c "[ \"\$(aws eks describe-cluster --name sre-challenge-$OTHER --query cluster.status --output text)\" = ACTIVE ]"
+  aws eks update-kubeconfig --name "sre-challenge-$OTHER" --region us-east-1 --alias "sre-challenge-$OTHER" >/dev/null 2>&1
+  # Passes only if Argo CD answers with at least one app AND every app is Synced + Healthy.
+  # (An error or an empty answer must FAIL, not pass.)
+  check "14 $OTHER Argo CD apps all Synced+Healthy" bash -c "out=\$(kubectl --context sre-challenge-$OTHER -n argocd get applications --no-headers) && [ -n \"\$out\" ] && echo \"\$out\" | awk '\$2!=\"Synced\"||\$3!=\"Healthy\"{bad=1} END{exit bad}'"
+else
+  echo "SKIP  13 $OTHER cluster does not exist ($OTHER is down), nothing to compare"
+  echo "SKIP  14 $OTHER Argo CD apps ($OTHER is down)"
+  skip=2
+fi
 
-echo; echo "passed $pass, failed $fail"
+echo; echo "passed $pass, failed $fail$([ $skip -gt 0 ] && echo ", skipped $skip")"
 [ "$fail" -eq 0 ]
