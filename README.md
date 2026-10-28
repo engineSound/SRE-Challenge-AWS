@@ -2,7 +2,7 @@
 
 A small Flask app ("the answer to everything") made **reliable** on AWS: built with Terraform, deployed by Argo CD from Git, released through a GitHub Actions pipeline with an approval gate, and measured with an SLI/SLO dashboard and email alerts.
 
-It answers the [AmFam DynamicEnablement SRE challenge](#how-this-answers-the-challenge). Nothing runs locally: everything lives in AWS and this repository.
+It answers the [DynamicEnablement SRE challenge](#how-this-answers-the-challenge). Nothing runs locally: everything lives in AWS and this repository.
 
 ---
 
