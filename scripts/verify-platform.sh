@@ -102,7 +102,14 @@ section "The app (public entry point)"
 LB=$($K get svc sre-challenge-app -n "$APP_NS" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
 if [ "$ENV" = prod ]; then
   WANT=$($K get deploy sre-challenge-app -n "$APP_NS" -o jsonpath='{.spec.template.spec.containers[0].image}'); WANT="${WANT##*:}"
-  H=$(curl -s --max-time 10 "http://$LB/health" 2>/dev/null); V=$(curl -s --max-time 10 "http://$LB/version" 2>/dev/null)
+  # On a fresh build the load balancer needs a few minutes before it answers: wait up to 5 minutes.
+  for i in $(seq 1 30); do
+    [ -z "$LB" ] && LB=$($K get svc sre-challenge-app -n "$APP_NS" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+    H=$(curl -s --max-time 10 "http://$LB/health" 2>/dev/null); V=$(curl -s --max-time 10 "http://$LB/version" 2>/dev/null)
+    [ "$H" = OK ] && [ "$V" = "$WANT" ] && break
+    [ "$i" = 1 ] && echo "       (waiting for the public load balancer to answer; a new one takes a few minutes)"
+    sleep 10
+  done
   check 8 "Public URL answers /health and the deployed version" "$(tf "[ \"$H\" = OK ] && [ \"$V\" = \"$WANT\" ]")" "http://$LB  health=$H version=$V (deployed tag $WANT)"
   # Generate real user traffic so the SLI has data (20 page requests).
   for i in $(seq 1 20); do curl -s -o /dev/null --max-time 5 "http://$LB/" ; done
